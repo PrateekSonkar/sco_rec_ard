@@ -435,6 +435,27 @@ const scrapeFirstInningMatchScoreCard = async () => {
   // });
 
   console.log("First Inning Data Stored !!", firstInningsScore);
+  console.log(`
+Convert following Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+${firstInningsScore.battingPlayers.join(", ")}
+
+outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
+`);
+  console.log(`
+Convert following Bowlers name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+${firstInningsScore.bowlingPlayers.join(", ")}
+
+outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
+`);
+  console.log(`
+Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+${firstInningsScore.doNotBatPlayersNames.join(", ")}
+
+outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
+`);
 };
 
 /**
@@ -633,6 +654,17 @@ const scrapeSecondInningMatchScoreCard = async () => {
       ...partnershipsSecondInnings,
     ].map((obj) => obj["Partnership Between"]),
   });
+
+  console.log(`
+  Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+${[...partnershipsFirstInnings, ...partnershipsSecondInnings]
+  .map((obj) => obj["Partnership Between"])
+  .join(", ")}
+
+outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
+
+  `);
 };
 
 /**
