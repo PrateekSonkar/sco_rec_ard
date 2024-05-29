@@ -87,16 +87,16 @@ Table of "Batting Details", "Bowling Details", "Partnership Runs Details" and "F
 Explain each table against innings. Find the relationship between data provided to you while explaining. Your writings should be in paragraphs instead of pointers. I don't want you to explain each section to me, rather I would like you to explain each innings in 6000 words each based on data provided to you. Find the relationship between data provided to you while explaining. 
 
 Series Name : Indian Premier League 
-Match Between : Lucknow Super Giants vs Kolkata Knight Riders 
-Match Number : 28
+Match Between : Kolkata Knight Riders vs Rajasthan Royals 
+Match Number : 31
 Match Type : T20 
-Match Date : April 14, 2024 
+Match Date : April 16, 2024 
 Venue : Eden Gardens, Kolkata 
-Toss Won By And Decision : Kolkata Knight Riders, elected to field first
-First Innings Score : 161/7
-Second Innings Score : (15.4/20 ov, T:162) 162/2
-Match Winner : KKR won by 8 wickets (with 26 balls remaining)
-Player of the Match : Phil Salt
+Toss Won By And Decision : Rajasthan Royals, elected to field first
+First Innings Score : 223/6
+Second Innings Score : (20 ov, T:224) 224/8
+Match Winner : RR won by 2 wickets (with 0 balls remaining)
+Player of the Match : Jos Buttler
 \n
 Batting Details\n${battingCSV}
 \n
@@ -697,6 +697,6 @@ Fall of Wickets Details\n${fowCSV}`,
 }
 
 createprompt(
-  "30th-match-15-Apr-2024-rcb-vs-sunrisers-hyderabad.json",
-  "./2024/March/IPL/30th-match-15-Apr-2024-rcb-vs-sunrisers-hyderabad"
+  "32nd-match-17-Apr-2024-gujarat-titans-vs-delhi-capitals.json",
+  "./2024/March/IPL/32nd-match-17-Apr-2024-gujarat-titans-vs-delhi-capitals"
 );

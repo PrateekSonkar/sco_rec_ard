@@ -13,7 +13,7 @@ function parseMatchDetails(element) {
   const matchNoText = matchNoElement.textContent;
   const matchNumber = matchNoText.trim().split(" ")[0]; // Get the second word, which should be the match number
   const venue = matchNoText.split(" at ")[1].split(" (")[0];
-  const matchType = matchNoText.split(" (")[1].replace(")", "").trim(); // Remove spaces
+  const matchType = matchNoText.split(" (")[1]?.replace(")", "").trim(); // Remove spaces
 
   const team1 = element
     .querySelector(".innings-info-1")

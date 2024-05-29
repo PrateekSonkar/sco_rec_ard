@@ -17,13 +17,44 @@ function sortByKey(array, key) {
   });
 }
 
-function getSimilarityScores(nameToBeCompared, listOfNames) {
+function getSimilarityScores(
+  nameToBeCompared,
+  listOfNames,
+  minPlayerNameLength,
+  maxPlayerNameLength
+) {
   let comparisionScore = listOfNames.map((name) => {
-    return {
+    console.log(
+      "nameToBeCompared :: ",
+      nameToBeCompared,
+      "by name in list :: ",
       name,
-      score: JaroWrinker.similarity(nameToBeCompared, name),
-      doesIncludes: name.includes(nameToBeCompared),
-    };
+      " => ",
+      name.includes(nameToBeCompared)
+    );
+    if (name.includes(nameToBeCompared)) {
+      return {
+        name,
+        score: JaroWrinker.similarity(nameToBeCompared, name),
+        doesIncludes: name.includes(nameToBeCompared),
+      };
+    } else {
+      let splittedName = nameToBeCompared.split(" ");
+      //if splittedName[0] length equal to or less than min player name length
+      if (splittedName[0].length <= minPlayerNameLength) {
+        return {
+          name,
+          score: JaroWrinker.similarity(nameToBeCompared, name),
+          doesIncludes: name.includes(splittedName[splittedName.length - 1]),
+        };
+      } else {
+        return {
+          name,
+          score: JaroWrinker.similarity(nameToBeCompared, name),
+          doesIncludes: name.includes(nameToBeCompared),
+        };
+      }
+    }
   });
   return comparisionScore;
 }
@@ -65,10 +96,15 @@ function multiSort(dataArray, sortKeys, sortOrders) {
       const order = sortOrders[i].toLowerCase() === "asc" ? 1 : -1;
 
       // Handle different data types (numbers, strings) gracefully
+      // console.log("obj1 :: ", obj1);
+      // console.log("obj1[key] :: ", key, obj1[key]);
+
+      // console.log("obj2 :: ", obj2);
+      // console.log("obj2[key] :: ", key, obj2[key]);
       const value1 =
-        typeof obj1[key] === "number" ? obj1[key] : obj1[key].toLowerCase();
+        typeof obj1[key] === "number" ? obj1[key] : obj1[key]?.toLowerCase();
       const value2 =
-        typeof obj2[key] === "number" ? obj2[key] : obj2[key].toLowerCase();
+        typeof obj2[key] === "number" ? obj2[key] : obj2[key]?.toLowerCase();
 
       if (value1 !== value2) {
         return (value1 - value2) * order; // Ascending for positive, descending for negative
@@ -77,6 +113,81 @@ function multiSort(dataArray, sortKeys, sortOrders) {
     // If all keys are equal, return 0 to maintain original order
     return 0;
   });
+}
+
+function findDuplicateBatsmen(data) {
+  let duplicates = {};
+  let seenNames = {};
+
+  data.forEach((item) => {
+    let lastName = item.Batsman.split(" ").pop();
+
+    if (!seenNames[item.Innings]) {
+      seenNames[item.Innings] = {};
+    }
+
+    if (seenNames[item.Innings][lastName]) {
+      if (!duplicates[item.Innings]) {
+        duplicates[item.Innings] = [];
+      }
+      if (
+        !duplicates[item.Innings].includes(seenNames[item.Innings][lastName])
+      ) {
+        duplicates[item.Innings].push(seenNames[item.Innings][lastName]);
+      }
+      duplicates[item.Innings].push(item.Batsman);
+    } else {
+      seenNames[item.Innings][lastName] = item.Batsman;
+    }
+  });
+
+  return duplicates;
+}
+
+function findDuplicateBowlers(data) {
+  let duplicates = {};
+  let seenNames = {};
+
+  data.forEach((item) => {
+    let lastName = item.Bowler.split(" ").pop();
+
+    if (!seenNames[item.Innings]) {
+      seenNames[item.Innings] = {};
+    }
+
+    if (seenNames[item.Innings][lastName]) {
+      if (!duplicates[item.Innings]) {
+        duplicates[item.Innings] = [];
+      }
+      if (
+        !duplicates[item.Innings].includes(seenNames[item.Innings][lastName])
+      ) {
+        duplicates[item.Innings].push(seenNames[item.Innings][lastName]);
+      }
+      duplicates[item.Innings].push(item.Bowler);
+    } else {
+      seenNames[item.Innings][lastName] = item.Bowler;
+    }
+  });
+
+  return duplicates;
+}
+
+function getGlobalCharacterExtremes(names) {
+  let allWordLengths = [];
+
+  // Collecting all word lengths from all names
+  names.forEach((name) => {
+    const words = name.split(" ");
+    const wordLengths = words.map((word) => word.length);
+    allWordLengths = allWordLengths.concat(wordLengths);
+  });
+
+  // Finding global max and min character counts across all names
+  const maxCount = Math.max(...allWordLengths);
+  const minCount = Math.min(...allWordLengths);
+
+  return { max: maxCount, min: minCount };
 }
 
 function readAndParseJsonFile(fileName, outputDir) {
@@ -88,7 +199,18 @@ function readAndParseJsonFile(fileName, outputDir) {
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
     }
+
     const jsonData = JSON.parse(data);
+
+    console.log(
+      "Duplicate Batsmen :: ",
+      findDuplicateBatsmen([...jsonData.batting, ...jsonData.doNotBatPlayers])
+    );
+    console.log(
+      "Duplicate Bowlers :: ",
+      findDuplicateBowlers([...jsonData.bowling])
+    );
+
     jsonData.batting = mergeLanguageArrays(
       jsonData.batting,
       jsonData.batsmanHindi
@@ -122,13 +244,42 @@ function readAndParseJsonFile(fileName, outputDir) {
       ),
     ];
     allPlayers = [...new Set(allPlayers)];
-    //console.log("All Players :: ", allPlayers);
+    console.log("All Players :: ", allPlayers);
+    let minCharCountPlayer = getGlobalCharacterExtremes(allPlayers).min;
+    let maxCharCountPlayer = getGlobalCharacterExtremes(allPlayers).max;
+    console.log("1st Innings Batsmen :: ", [
+      ...new Set(
+        jsonData.commentaryInnigsOne.map((commentary) => commentary.batsman)
+      ),
+    ]);
+    console.log("1st Innings Bowlers :: ", [
+      ...new Set(
+        jsonData.commentaryInnigsOne.map((commentary) => commentary.bowler)
+      ),
+    ]);
+    console.log("2nd Innings Batsmen :: ", [
+      ...new Set(
+        jsonData.commentaryInnigsTwo.map((commentary) => commentary.batsman)
+      ),
+    ]);
+    console.log("2nd Innings Bowlers :: ", [
+      ...new Set(
+        jsonData.commentaryInnigsTwo.map((commentary) => commentary.bowler)
+      ),
+    ]);
+
     let modifiedCommentaryInnigsOne = jsonData.commentaryInnigsOne.map(
       (commentary) => {
-        // console.log("batsman :: ", commentary.batsman);
-        let allScoresForBatsman = getSimilarityScores(commentary.batsman, [
-          ...allPlayers,
-        ]);
+        // console.log(
+        //   "batsman :: modifiedCommentaryInnigsOne :: ",
+        //   commentary.batsman
+        // );
+        let allScoresForBatsman = getSimilarityScores(
+          commentary.batsman,
+          [...allPlayers],
+          minCharCountPlayer,
+          maxCharCountPlayer
+        );
         let ActualBatsman = "";
         if (allScoresForBatsman.filter((bat) => bat.doesIncludes).length > 0) {
           ActualBatsman = allScoresForBatsman.filter(
@@ -139,10 +290,13 @@ function readAndParseJsonFile(fileName, outputDir) {
         }
         // console.log("Actual Batsman :: ", ActualBatsman);
 
-        // console.log("bowler :: ", commentary.bowler);
-        let allScoresForBowler = getSimilarityScores(commentary.bowler, [
-          ...allPlayers,
-        ]);
+        console.log("bowler innings 1 :: ", commentary.bowler);
+        let allScoresForBowler = getSimilarityScores(
+          commentary.bowler,
+          [...allPlayers],
+          minCharCountPlayer,
+          maxCharCountPlayer
+        );
         let ActualBowler = "";
         if (allScoresForBowler.filter((bowl) => bowl.doesIncludes).length > 0) {
           ActualBowler = allScoresForBowler.filter(
@@ -152,7 +306,7 @@ function readAndParseJsonFile(fileName, outputDir) {
           ActualBowler = getHighestScoreObject(allScoresForBowler).name;
         }
 
-        // console.log("Actual Bowler :: ", ActualBowler);
+        console.log("Actual Bowler innings 1 :: ", ActualBowler);
         delete commentary.ballcommentary;
         delete commentary.battingteam;
         delete commentary.match_fk;
@@ -173,10 +327,17 @@ function readAndParseJsonFile(fileName, outputDir) {
 
     let modifiedCommentaryInnigsTwo = jsonData.commentaryInnigsTwo.map(
       (commentary) => {
-        // console.log("batsman :: ", commentary.batsman);
-        let allScoresForBatsman = getSimilarityScores(commentary.batsman, [
-          ...allPlayers,
-        ]);
+        // console.log(
+        //   "batsman :: modifiedCommentaryInnigsTwo :: ",
+        //   commentary.batsman
+        // );
+        let allScoresForBatsman = getSimilarityScores(
+          commentary.batsman,
+          [...allPlayers],
+          minCharCountPlayer,
+          maxCharCountPlayer
+        );
+        //console.log("All Scores For Batsman :: ", allScoresForBatsman);
         let ActualBatsman = "";
         if (allScoresForBatsman.filter((bat) => bat.doesIncludes).length > 0) {
           ActualBatsman = allScoresForBatsman.filter(
@@ -187,10 +348,14 @@ function readAndParseJsonFile(fileName, outputDir) {
         }
         // console.log("Actual Batsman :: ", ActualBatsman);
 
-        // console.log("bowler :: ", commentary.bowler);
-        let allScoresForBowler = getSimilarityScores(commentary.bowler, [
-          ...allPlayers,
-        ]);
+        console.log("bowler innings 2 :: ", commentary.bowler);
+        let allScoresForBowler = getSimilarityScores(
+          commentary.bowler,
+          [...allPlayers],
+          minCharCountPlayer,
+          maxCharCountPlayer
+        );
+        console.log("All Scores For Bowler :: ", allScoresForBowler);
         let ActualBowler = "";
         if (allScoresForBowler.filter((bowl) => bowl.doesIncludes).length > 0) {
           ActualBowler = allScoresForBowler.filter(
@@ -200,7 +365,7 @@ function readAndParseJsonFile(fileName, outputDir) {
           ActualBowler = getHighestScoreObject(allScoresForBowler).name;
         }
 
-        // console.log("Actual Bowler :: ", ActualBowler);
+        console.log("Actual Bowler innings 2 :: ", ActualBowler);
         delete commentary.ballcommentary;
         delete commentary.battingteam;
         delete commentary.match_fk;
@@ -261,8 +426,8 @@ function readAndParseJsonFile(fileName, outputDir) {
       ...new Set(allCommentary.map((commentary) => commentary.ActualBowler)),
     ];
 
-    // console.log("Unique Batsmen :: ", allBatsmen);
-    // console.log("Unique Bowlers :: ", allBowlers);
+    console.log("Unique Batsmen :: ", allBatsmen);
+    console.log("Unique Bowlers :: ", allBowlers);
 
     let enrichedBatsmen = allBatsmen.map((batsman) => {
       let batsmanInnings = allCommentary.filter(
@@ -426,8 +591,8 @@ function readAndParseJsonFile(fileName, outputDir) {
       enrichedBowler,
       "Bowler"
     );
-    console.log("Merged Bowlers :: ", mergedArrayBowlers);
-    console.log("Merged Batsmen :: ", mergedArrayBatsmen);
+    //console.log("Merged Bowlers :: ", mergedArrayBowlers);
+    //console.log("Merged Batsmen :: ", mergedArrayBatsmen);
 
     /**
      * Batting Stats Starts
@@ -1055,6 +1220,6 @@ ${partershipByImpactCSVHindi}
 }
 
 readAndParseJsonFile(
-  "16th-match-03-Apr-2024-kolkata-knight-riders-vs-delhi-capitals.json",
-  "./2024/March/IPL/16th-match-03-Apr-2024-kolkata-knight-riders-vs-delhi-capitals"
+  "32nd-match-17-Apr-2024-gujarat-titans-vs-delhi-capitals.json",
+  "./2024/March/IPL/32nd-match-17-Apr-2024-gujarat-titans-vs-delhi-capitals"
 );
