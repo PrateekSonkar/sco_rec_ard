@@ -1,174 +1,406 @@
-let firstscorecardcopy = document.getElementById("firstscorecardcopy");
-let firstscorecardpaste = document.getElementById("firstscorecardpaste");
-let secondscorecardcopy = document.getElementById("secondscorecardcopy");
-let secondscorecardpaste = document.getElementById("secondscorecardpaste");
-let mvpcopy = document.getElementById("mvpcopy");
-let mvppaste = document.getElementById("mvppaste");
-let commentarycopy = document.getElementById("commentarycopy");
-let commentarypaste = document.getElementById("commentarypaste");
-let cleardetail = document.getElementById("clearit");
-
-/**
- * First Innings Copy Event Handling
- */
-firstscorecardcopy.addEventListener("click", async () => {
-  // Get current active Tab of browser
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  console.log(tab.url);
-  if (
-    tab.url.includes("/full-scorecard") ||
-    tab.url.includes("/live-cricket-score")
-  ) {
-    //Executing script on the page !!
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: scrapeFirstInningMatchScoreCard,
+document.addEventListener("DOMContentLoaded", () => {
+  document.getElementById("fetchHeading").addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabs[0].id },
+          function: scrapeData,
+        },
+        (results) => {
+          console.log(" Results: ", results);
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError.message);
+          } else {
+            const matchHeading = results[0].result;
+            document.getElementById("matchHeading").value = matchHeading;
+            chrome.storage.local.set(
+              {
+                matchHeading: matchHeading,
+              },
+              () => {
+                console.log("Match heading saved:", matchHeading);
+              }
+            );
+          }
+        }
+      );
     });
-  } else {
-    alert("Not on Scorecard Page, kindly select valid page");
-  }
-});
-
-/**
- * First Innings Paste Event Handling
- */
-firstscorecardpaste.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: pasteFirstInningMatchScoreCard,
-  });
-});
-
-/**
- * Second Innings Copy Event Handling
- */
-secondscorecardcopy.addEventListener("click", async () => {
-  // Get current active Tab of browser
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
   });
 
-  if (tab.url.includes("/match-statistics")) {
-    //Executing script on the page !!
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: scrapeSecondInningMatchScoreCard,
+  document.getElementById("saveData").addEventListener("click", () => {
+    const customId = document.getElementById("customId").value;
+    const matchData = JSON.parse(document.getElementById("matchData").value);
+    const id = customId || "default-id";
+    console.log(
+      "Saving data with ID:",
+      chrome.storage.local.get("matchHeading", (data) => {
+        console.log(data);
+      })
+    );
+
+    fetch(`http://localhost:8000/matches/${id}`)
+      .then((response) => {
+        if (response.status === 404) {
+          // Entry not found, create new entry
+          return fetch("http://localhost:8000/matches", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ id, ...matchData }),
+          });
+        } else {
+          // Entry found, merge new data with existing data
+          return response.json().then((existingData) => {
+            const updatedData = { ...existingData, ...matchData };
+            return fetch(`http://localhost:8000/matches/${id}`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(updatedData),
+            });
+          });
+        }
+      })
+      .then((response) => response.json())
+      .then((data) => {
+        console.log("Data saved:", data);
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+      });
+  });
+
+  //Innings Scores Copy Button Start
+  document.getElementById("inningsCopy").addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabs[0].id },
+          function: copyInningsDetails,
+        },
+        (results) => {
+          console.log(" Results: inningsCopy :: ", results);
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError.message);
+          } else {
+            const innings = results[0].result;
+            chrome.storage.local.set(
+              {
+                innings,
+              },
+              () => {
+                console.log("Innings Detail saved:", innings);
+              }
+            );
+          }
+        }
+      );
     });
-  } else {
-    alert("Not on Scorecard Page, kindly select valid page");
-  }
-});
+  });
+  //Innings Scores Copy Button Ends
 
-/**
- * Second Innings Copy Event Handling
- */
-secondscorecardpaste.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: pasteSecondInningMatchScoreCard,
-  });
-});
+  //Innings Scores Save to server Button Start
+  document.getElementById("inningsSave").addEventListener("click", () => {
+    const customId = document.getElementById("customId").value;
+    const id = customId || "default-id";
 
-/**
- * MVP Copy Event Handling
- */
-mvpcopy.addEventListener("click", async () => {
-  // Get current active Tab of browser
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  if (tab.url.includes("/live-cricket-score")) {
-    //Executing script on the page !!
-    chrome.scripting.executeScript({
-      target: { tabId: tab.id },
-      func: scrapeMatchMVP,
+    chrome.storage.local.get("innings", (data) => {
+      console.log("saved innings data :: ", data);
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+      } else {
+        const innings = data.innings || "";
+        fetch(`http://localhost:8000/matches/${id}`)
+          .then((response) => {
+            if (response.status === 404) {
+              // Entry not found, create new entry
+              return fetch("http://localhost:8000/matches", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id, ...innings }),
+              });
+            } else {
+              // Entry found, merge new data with existing data
+              return response.json().then((existingData) => {
+                const updatedData = { ...existingData, ...innings };
+                return fetch(`http://localhost:8000/matches/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(updatedData),
+                });
+              });
+            }
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Data saved:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
     });
-  } else {
-    alert("Not on Player MVP Page, kindly select valid page");
-  }
+  });
+  //Innings Scores Save to server Button Ends
+
+  //Partnership Scores Copy Button Start
+  document.getElementById("partnerCopy").addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabs[0].id },
+          function: copyPartnershipDetails,
+        },
+        (results) => {
+          console.log(" Results: partnerCopy :: ", results);
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError.message);
+          } else {
+            const partnership = results[0].result;
+            chrome.storage.local.set(
+              {
+                partnership,
+              },
+              () => {
+                console.log("partnership Detail saved:", partnership);
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+  //Partnership Scores Copy Button Ends
+
+  //partnership Scores Save to server Button Start
+  document.getElementById("partnerSave").addEventListener("click", () => {
+    const customId = document.getElementById("customId").value;
+    const id = customId || "default-id";
+
+    chrome.storage.local.get("partnership", (data) => {
+      console.log("saved partnership data :: ", data);
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+      } else {
+        const partnership = data.partnership || "";
+        fetch(`http://localhost:8000/matches/${id}`)
+          .then((response) => {
+            if (response.status === 404) {
+              // Entry not found, create new entry
+              return fetch("http://localhost:8000/matches", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ id, ...partnership }),
+              });
+            } else {
+              // Entry found, merge new data with existing data
+              return response.json().then((existingData) => {
+                const updatedData = { ...existingData, ...partnership };
+                return fetch(`http://localhost:8000/matches/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(updatedData),
+                });
+              });
+            }
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Data saved:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+    });
+  });
+  //Partnership Scores Save to server Button Start
+
+  // First Innings Commentaries Copy Button Start
+  document.getElementById("commentaryCopyOne").addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabs[0].id },
+          function: copyMatchCommentary,
+        },
+        (results) => {
+          console.log(" Results: copyMatchCommentary one :: ", results);
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError.message);
+          } else {
+            const commentaryOne = results[0].result;
+            chrome.storage.local.set(
+              {
+                commentaryOne,
+              },
+              () => {
+                console.log("commentary Detail saved:", commentaryOne);
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+  //First Innings Commentaries Copy Button Ends
+  //First Innings Commentaries Save to server Button Start
+  document.getElementById("commentarySaveOne").addEventListener("click", () => {
+    const customId = document.getElementById("customId").value;
+    const id = customId || "default-id";
+
+    chrome.storage.local.get("commentaryOne", (data) => {
+      console.log("saved commentaryOne data :: ", data);
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+      } else {
+        const commentaryOne = data.commentaryOne || "";
+        fetch(`http://localhost:8000/matches/${id}`)
+          .then((response) => {
+            if (response.status === 404) {
+              // Entry not found, create new entry
+              return fetch("http://localhost:8000/matches", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  id,
+                  commentaryInnigsOne: [...commentaryOne],
+                }),
+              });
+            } else {
+              // Entry found, merge new data with existing data
+              return response.json().then((existingData) => {
+                const updatedData = {
+                  ...existingData,
+                  commentaryInnigsOne: [...commentaryOne],
+                };
+                return fetch(`http://localhost:8000/matches/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(updatedData),
+                });
+              });
+            }
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Data saved:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+    });
+  });
+  //First Innings Commentaries Save to server Button Ends
+
+  // Second Innings Commentaries Copy Button Start
+  document.getElementById("commentaryCopyTwo").addEventListener("click", () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tabs[0].id },
+          function: copyMatchCommentary,
+        },
+        (results) => {
+          console.log(" Results: copyMatchCommentary two :: ", results);
+          if (chrome.runtime.lastError) {
+            console.error(chrome.runtime.lastError.message);
+          } else {
+            const commentaryTwo = results[0].result;
+            chrome.storage.local.set(
+              {
+                commentaryTwo,
+              },
+              () => {
+                console.log("commentary Detail saved:", commentaryTwo);
+              }
+            );
+          }
+        }
+      );
+    });
+  });
+  //Second Innings Commentaries Copy Button Ends
+
+  //Second Innings Commentaries Save to server Button Start
+  document.getElementById("commentarySaveTwo").addEventListener("click", () => {
+    const customId = document.getElementById("customId").value;
+    const id = customId || "default-id";
+
+    chrome.storage.local.get("commentaryTwo", (data) => {
+      console.log("saved commentaryTwo data :: ", data);
+      if (chrome.runtime.lastError) {
+        console.error(chrome.runtime.lastError);
+      } else {
+        const commentaryTwo = data.commentaryTwo || "";
+        fetch(`http://localhost:8000/matches/${id}`)
+          .then((response) => {
+            if (response.status === 404) {
+              // Entry not found, create new entry
+              return fetch("http://localhost:8000/matches", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  id,
+                  commentaryInnigsTwo: [...commentaryTwo],
+                }),
+              });
+            } else {
+              // Entry found, merge new data with existing data
+              return response.json().then((existingData) => {
+                const updatedData = {
+                  ...existingData,
+                  commentaryInnigsTwo: [...commentaryTwo],
+                };
+                return fetch(`http://localhost:8000/matches/${id}`, {
+                  method: "PUT",
+                  headers: {
+                    "Content-Type": "application/json",
+                  },
+                  body: JSON.stringify(updatedData),
+                });
+              });
+            }
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            console.log("Data saved:", data);
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+          });
+      }
+    });
+  });
+  //Second Innings Commentaries Save to server Button Ends
 });
 
-/**
- * MVP Paste Event Handling
- */
-mvppaste.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: pasteMatchMVP,
-  });
-});
+function scrapeData() {
+  const matchHeading = document.querySelector(
+    ".ds-text-title-xs.ds-font-bold.ds-mb-2.ds-m-1"
+  ).innerText;
+  return matchHeading;
+}
 
-/**
- * Commentary Copy Event Handling
- */
-
-commentarycopy.addEventListener("click", async () => {
-  // Get current active Tab of browser
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  //if (tab.url.includes("/ball-by-ball-commentary")) {
-  //Executing script on the page !!
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: scrapeMatchCommentary,
-  });
-  // } else {
-  //   alert("Not on Commantary Page, kindly select valid page");
-  // }
-});
-
-/**
- * Commentary Paste Event Handling
- */
-commentarypaste.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: pasteMatchCommentary,
-  });
-});
-
-/**
- * Clear data from chrome storage
- */
-
-cleardetail.addEventListener("click", async () => {
-  let [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true,
-  });
-  chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: clearAllEntriesFromStorage,
-  });
-});
-
-/**
- * Handler to copy match of first innings from site
- */
-const scrapeFirstInningMatchScoreCard = async () => {
+// Scrapping Data of Innings
+function copyInningsDetails() {
   let firstInningsScore = {
     batting: [],
     bowling: [],
@@ -436,123 +668,32 @@ const scrapeFirstInningMatchScoreCard = async () => {
 
   console.log("First Inning Data Stored !!", firstInningsScore);
   console.log(`
-Convert following Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
-
-${firstInningsScore.battingPlayers.join(", ")}
-
-outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
-`);
+  Convert following Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+  
+  ${firstInningsScore.battingPlayers.join(", ")}
+  
+  outcome should be JSON like {"batsmanHindi" : [{"hindi": "translated name in Hindi", ...}]}
+  `);
   console.log(`
-Convert following Bowlers name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
-
-${firstInningsScore.bowlingPlayers.join(", ")}
-
-outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
-`);
+  Convert following Bowlers name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+  
+  ${firstInningsScore.bowlingPlayers.join(", ")}
+  
+  outcome should be JSON like {"bowlerHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+  `);
   console.log(`
-Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+  Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+  
+  ${firstInningsScore.doNotBatPlayersNames.join(", ")}
+  
+  outcome should be JSON like {"doNotBatPlayersHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+  `);
 
-${firstInningsScore.doNotBatPlayersNames.join(", ")}
+  return firstInningsScore;
+}
 
-outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
-`);
-};
-
-/**
- * Handler to paste match of first innings from site
- */
-const pasteFirstInningMatchScoreCard = async () => {
-  let fetchedValue = await chrome.storage.local.get("match_first_innings");
-  document.getElementById("first_innings_jsondata").value = "";
-  document.getElementById("first_innings_jsondata").value =
-    fetchedValue.match_first_innings;
-  console.log("First Inning Data Pasted !!", fetchedValue.match_first_innings);
-};
-
-/**
- * Handler to copy match of second innings from site
- */
-const scrapeSecondInningMatchScoreCard = async () => {
-  // let secondInningsScore = {
-  //   batting: [],
-  //   bowling: [],
-  // };
-  // let secondInnings = document.querySelectorAll(".ds-rounded-lg.ds-mt-2")[1];
-  // let secondInningsBatting =
-  //   secondInnings.querySelectorAll(".ds-p-0 > table")[0];
-  // let allPlayersBattingStats = [];
-  // secondInningsBatting.querySelectorAll("tbody > tr").forEach((ele, index) => {
-  //   if (ele.childElementCount === 8) {
-  //     let battingPlayerStats = {};
-  //     battingPlayerStats["playerName"] = ele.children[0].textContent;
-  //     battingPlayerStats["howWasOut"] = ele.children[1].textContent;
-  //     battingPlayerStats["runs"] = isNaN(ele.children[2].textContent)
-  //       ? -1000
-  //       : Number(ele.children[2].textContent);
-  //     battingPlayerStats["balls"] = isNaN(ele.children[3].textContent)
-  //       ? -1000
-  //       : Number(ele.children[3].textContent);
-  //     battingPlayerStats["minutes"] = isNaN(ele.children[4].textContent)
-  //       ? -1000
-  //       : Number(ele.children[4].textContent);
-  //     battingPlayerStats["fours"] = isNaN(ele.children[5].textContent)
-  //       ? -1000
-  //       : Number(ele.children[5].textContent);
-  //     battingPlayerStats["sixes"] = isNaN(ele.children[6].textContent)
-  //       ? -1000
-  //       : Number(ele.children[6].textContent);
-  //     battingPlayerStats["strikeRate"] = isNaN(ele.children[7].textContent)
-  //       ? -1000
-  //       : Number(ele.children[7].textContent);
-  //     allPlayersBattingStats.push(battingPlayerStats);
-  //   }
-  // });
-  // let secondInningsBowling =
-  //   secondInnings.querySelectorAll(".ds-p-0 > table")[1];
-  // let allPlayersBowlingStats = [];
-  // secondInningsBowling.querySelectorAll("tbody > tr").forEach((ele, index) => {
-  //   if (ele.childElementCount === 11) {
-  //     let bowlingPlayerStats = {};
-  //     bowlingPlayerStats["playerName"] = ele.children[0].textContent;
-  //     bowlingPlayerStats["overs"] = isNaN(ele.children[1].textContent)
-  //       ? -1000
-  //       : Number(ele.children[1].textContent);
-  //     bowlingPlayerStats["maidens"] = isNaN(ele.children[2].textContent)
-  //       ? -1000
-  //       : Number(ele.children[2].textContent);
-  //     bowlingPlayerStats["runs"] = isNaN(ele.children[3].textContent)
-  //       ? -1000
-  //       : Number(ele.children[3].textContent);
-  //     bowlingPlayerStats["wickets"] = isNaN(ele.children[4].textContent)
-  //       ? -1000
-  //       : Number(ele.children[4].textContent);
-  //     bowlingPlayerStats["econ"] = isNaN(ele.children[5].textContent)
-  //       ? -1000
-  //       : Number(ele.children[5].textContent);
-  //     bowlingPlayerStats["zeros"] = isNaN(ele.children[6].textContent)
-  //       ? -1000
-  //       : Number(ele.children[6].textContent);
-  //     bowlingPlayerStats["fours"] = isNaN(ele.children[7].textContent)
-  //       ? -1000
-  //       : Number(ele.children[7].textContent);
-  //     bowlingPlayerStats["sixes"] = isNaN(ele.children[8].textContent)
-  //       ? -1000
-  //       : Number(ele.children[8].textContent);
-  //     bowlingPlayerStats["wides"] = isNaN(ele.children[9].textContent)
-  //       ? -1000
-  //       : Number(ele.children[9].textContent);
-  //     bowlingPlayerStats["noballs"] = isNaN(ele.children[10].textContent)
-  //       ? -1000
-  //       : Number(ele.children[10].textContent);
-  //     allPlayersBowlingStats.push(bowlingPlayerStats);
-  //   }
-  // });
-  // secondInningsScore["batting"] = allPlayersBattingStats;
-  // secondInningsScore["bowling"] = allPlayersBowlingStats;
-  // let storedValueSecondInnings = await chrome.storage.local.set({
-  //   match_second_innings: JSON.stringify(secondInningsScore),
-  // });
-
+//Function Scrapping data of Partnership
+function copyPartnershipDetails() {
   const partnershipData = document.querySelectorAll(".ds-p-4.ds-w-full");
 
   const partnershipsFirstInnings = Array.from(
@@ -656,239 +797,79 @@ const scrapeSecondInningMatchScoreCard = async () => {
   });
 
   console.log(`
-  Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+    Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+  
+  ${[...partnershipsFirstInnings, ...partnershipsSecondInnings]
+    .map((obj) => obj["Partnership Between"])
+    .join(", ")}
+  
+  outcome should be JSON like {"partnershipHindi":[{"hindi": "क्विंटन डी कॉक", ...}]}
+  
+    `);
 
-${[...partnershipsFirstInnings, ...partnershipsSecondInnings]
-  .map((obj) => obj["Partnership Between"])
-  .join(", ")}
+  return {
+    partnership: [...partnershipsFirstInnings, ...partnershipsSecondInnings],
+    partnershipBetween: [
+      ...partnershipsFirstInnings,
+      ...partnershipsSecondInnings,
+    ].map((obj) => obj["Partnership Between"]),
+  };
+}
 
-outcome should be JSON like [{"hindi": "क्विंटन डी कॉक", ...}]
+//Function for scrapping data of Commentaries
+const copyMatchCommentary = async () => {
+  let allData = [];
+  const wideRegex = new RegExp("(wide$|leg bye$)");
+  const noRunRegex = new RegExp("no run$");
+  const outRegex = new RegExp("OUT$");
+  const boundaryRegex = new RegExp("(SIX|FOUR) runs$");
+  document
+    .querySelectorAll("div.ds-hover-parent.ds-relative")
+    .forEach((ele, ind) => {
+      if (
+        ele.childElementCount === 1 &&
+        !!ele.querySelector("p.ci-html-content")
+      ) {
+        let overText = ele.children[0].children[0]
+          .getElementsByTagName("span")[0]
+          .textContent.split(".");
+        let runsText =
+          ele.children[0].children[0].getElementsByTagName("span")[1]
+            .textContent;
+        let quickText =
+          ele.children[0].children[1].children[0].children[0].getElementsByTagName(
+            "span"
+          )[0].textContent;
+        let ballcommentary =
+          ele?.children[0]?.children[1]?.children[0]?.children[0]?.getElementsByClassName(
+            "ci-html-content"
+          )[0]?.textContent;
 
-  `);
-};
-
-/**
- * Handler to paste match of second innings from site
- */
-const pasteSecondInningMatchScoreCard = async () => {
-  let fetchedValue = await chrome.storage.local.get("match_second_innings");
-  document.getElementById("second_innings_jsondata").value = "";
-  document.getElementById("second_innings_jsondata").value =
-    fetchedValue.match_second_innings;
-  console.log("Second Inning Data Pasted !!");
-};
-
-/**
- * Handler to copy match MVP from site
- */
-
-const scrapeMatchMVP = async () => {
-  // let mvpAllData = [];
-  // document
-  //   .querySelectorAll(
-  //     "table.ds-w-full.ds-table.ds-table-md.ds-table-auto > tbody > tr"
-  //   )
-  //   .forEach((ele, ind) => {
-  //     let mvpOfPlayer = {};
-  //     let tdElements = ele.querySelectorAll("td");
-  //     let runAndBall = tdElements[3].textContent
-  //       .replace("(", " ")
-  //       .replace(")", "")
-  //       .split(" ");
-  //     let ballAndWicket = tdElements[6].textContent
-  //       .replace("/", " ")
-  //       .split(" ");
-  //     mvpOfPlayer["name"] = tdElements[0].textContent;
-  //     mvpOfPlayer["country"] = tdElements[1].textContent;
-  //     mvpOfPlayer["totalImpact"] = Number(
-  //       tdElements[2].textContent.replaceAll(" ", "")
-  //     );
-  //     mvpOfPlayer["run"] =
-  //       runAndBall.length === 2
-  //         ? Number(runAndBall[0].replaceAll(" ", ""))
-  //         : -1000;
-  //     mvpOfPlayer["ballPlayed"] =
-  //       runAndBall.length === 2
-  //         ? Number(runAndBall[1].replaceAll(" ", ""))
-  //         : -1000;
-  //     mvpOfPlayer["impactRun"] = !isNaN(
-  //       tdElements[4].textContent.replaceAll(" ", "")
-  //     )
-  //       ? Number(tdElements[4].textContent.replaceAll(" ", ""))
-  //       : -1000;
-  //     mvpOfPlayer["runOnBalls"] =
-  //       ballAndWicket.length === 2 ? Number(ballAndWicket[1]) : -1000;
-  //     mvpOfPlayer["wickets"] =
-  //       ballAndWicket.length === 2 ? Number(ballAndWicket[0]) : -1000;
-  //     mvpOfPlayer["impactWicket"] = !isNaN(
-  //       tdElements[7].textContent.replaceAll(" ", "")
-  //     )
-  //       ? Number(tdElements[7].textContent.replaceAll(" ", ""))
-  //       : -1000;
-  //     mvpAllData.push(mvpOfPlayer);
-  //   });
-  // let storedValueMVP = await chrome.storage.local.set({
-  //   match_mvp: JSON.stringify(mvpAllData),
-  // });
-  const matchDetails = document
-    .querySelector(".ds-text-tight-m.ds-font-regular.ds-text-typo-mid3")
-    .childNodes[0].textContent.trim();
-
-  // Adjusted regex patterns to accurately capture the data
-  const matchNumberRegex = /(\d+)(?=(?:st|nd|rd|th)\s)/;
-  const matchTypeRegex = /(T20I|ODI|Test)/;
-  const matchDateRegex = /([A-Z][a-z]+ \d{1,2}, \d{4})/;
-
-  const MatchNumber = matchNumberRegex.exec(matchDetails)
-    ? parseInt(matchNumberRegex.exec(matchDetails)[1], 10)
-    : null;
-  const MatchType = matchTypeRegex.exec(matchDetails)
-    ? matchTypeRegex.exec(matchDetails)[0]
-    : null;
-  const MatchDate = matchDateRegex.exec(matchDetails)
-    ? matchDateRegex.exec(matchDetails)[0]
-    : null;
-  const SeriesName = document
-    .querySelectorAll(".ds-text-tight-m.ds-font-regular.ds-text-typo-mid3")[1]
-    .textContent.trim();
-  const MatchBetween = `${
-    document.querySelectorAll(
-      ".ci-team-score.ds-flex.ds-justify-between.ds-items-center.ds-text-typo.ds-mb-1"
-    )[0].childNodes[0].textContent
-  } vs ${
-    document.querySelectorAll(
-      ".ci-team-score.ds-flex.ds-justify-between.ds-items-center.ds-text-typo.ds-mb-1"
-    )[1].childNodes[0].textContent
-  }`;
-  const MatchWinner = document.querySelector(
-    ".ds-text-tight-s.ds-font-medium.ds-truncate.ds-text-typo"
-  ).textContent;
-  const Venue = document.querySelectorAll(
-    ".ds-w-full.ds-table.ds-table-sm.ds-table-auto.ds-border-line"
-  )[
-    document.querySelectorAll(
-      ".ds-w-full.ds-table.ds-table-sm.ds-table-auto.ds-border-line"
-    ).length - 1
-  ].childNodes[0].childNodes[0].textContent;
-  const TossWonByAndDecision = document.querySelectorAll(
-    ".ds-w-full.ds-table.ds-table-sm.ds-table-auto.ds-border-line"
-  )[
-    document.querySelectorAll(
-      ".ds-w-full.ds-table.ds-table-sm.ds-table-auto.ds-border-line"
-    ).length - 1
-  ].childNodes[0].childNodes[1].childNodes[1].textContent;
-  const FirstInningsScore = document.querySelectorAll(
-    ".ci-team-score.ds-flex.ds-justify-between.ds-items-center.ds-text-typo.ds-mb-1"
-  )[0].childNodes[1].textContent;
-  const SecondInningsScore = document.querySelectorAll(
-    ".ci-team-score.ds-flex.ds-justify-between.ds-items-center.ds-text-typo.ds-mb-1"
-  )[1].childNodes[1].textContent;
-  const playerOfTheMatch = document.querySelector(
-    ".ds-text-eyebrow-xs + div a span"
-  ).textContent;
-  console.log(
-    `File Name : ${MatchBetween.replaceAll(
-      " ",
-      "-"
-    )}-${MatchNumber}-Match-${MatchDate.replace(",", "").replaceAll(
-      " ",
-      "-"
-    )}.txt \nSeries Name : ${SeriesName} \nMatch Between : ${MatchBetween} \nMatch Number : ${MatchNumber}\nMatch Type : ${MatchType} \nMatch Date : ${MatchDate} \nVenue : ${Venue} \nToss Won By And Decision : ${TossWonByAndDecision}\nFirst Innings Score : ${FirstInningsScore}\nSecond Innings Score : ${SecondInningsScore}\nMatch Winner : ${MatchWinner}\nPlayer of the Match : ${playerOfTheMatch}`
-  );
-  // setTimeout(() => {
-  //   console.log("MVP Data Stored !!");
-  // }, 3000);
-};
-
-/**
- * Handler to paste match MVP from site
- */
-
-const pasteMatchMVP = async () => {
-  let fetchedValue = await chrome.storage.local.get("match_mvp");
-  document.getElementById("mvpjsondata").value = "";
-  document.getElementById("mvpjsondata").value = fetchedValue.match_mvp;
-  console.log("MVP Data pasted !!");
-};
-
-/**
- * Handler to copy match commentary from site
- */
-const scrapeMatchCommentary = async () => {
-  let allMatches = [];
-
-  function parseMatchDetails(element) {
-    const matchNoElement = element.querySelector(".match-no a");
-    const matchNoText = matchNoElement.textContent;
-    const matchNumber = matchNoText.trim().split(" ")[0]; // Get the second word, which should be the match number
-    const venue = matchNoText.split(" at ")[1].split(" (")[0];
-    const matchType = matchNoText.split(" (")[1].replace(")", "").trim(); // Remove spaces
-
-    const team1 = element
-      .querySelector(".innings-info-1")
-      .childNodes[0].textContent.trim();
-    const team2 = element
-      .querySelector(".innings-info-2")
-      .childNodes[0].textContent.trim();
-
-    const matchDateText =
-      element.querySelector(".match-info .bold").textContent;
-    const matchDate = dayjs(matchDateText, "MMM DD, YYYY").format("MM/DD/YYYY"); // Format the date
-
-    const blogSlug = `${team1.toLowerCase().replace(/ /g, "-")}-vs-${team2
-      .toLowerCase()
-      .replace(/ /g, "-")}-${matchNumber}-match-${matchDate.replace(
-      /\//g,
-      "-"
-    )}`; // Replace slashes with hyphens in the date
-
-    const result = {
-      matchnumber: parseInt(matchNumber),
-      team1: team1,
-      team2: team2,
-      matchdate: matchDate,
-      venue: venue,
-      matchtype: matchType,
-      blogslug: blogSlug,
-    };
-
-    return result;
-  }
-
-  document.querySelectorAll(".default-match-block").forEach((ele, ind) => {
-    const matchDetails = parseMatchDetails(ele);
-    // console.log("matchDetails :: ", matchDetails);
-    allMatches.push(matchDetails);
-  });
-  console.log("Commentary Data Stored !!", allMatches);
-};
-
-/**
- * Handler to paste match commentary from site
- */
-const pasteMatchCommentary = async () => {
-  let fetchedValue = await chrome.storage.local.get("match_commantary");
-  document.getElementById("jsondata").value = "";
-  document.getElementById("jsondata").value = fetchedValue.match_commantary;
-};
-
-/**
- * Handler to clear all the entries from chrome storage.
- */
-const clearAllEntriesFromStorage = async () => {
-  await chrome.storage.local.set({
-    match_commantary: "",
-  });
-  await chrome.storage.local.set({
-    match_mvp: "",
-  });
-  await chrome.storage.local.set({
-    match_second_innings: "",
-  });
-  await chrome.storage.local.set({
-    match_first_innings: "",
-  });
-  setTimeout(() => {
-    console.log("Data Cleared !!");
-  }, 3000);
+        let containsExtra = wideRegex.test(quickText) ? true : false;
+        let containsWicket = outRegex.test(quickText) ? true : false;
+        let containsBoundary = boundaryRegex.test(quickText) ? true : false;
+        let dotBall = noRunRegex.test(quickText) ? true : false;
+        let ballByBall = {};
+        ballByBall["over"] = overText[0];
+        ballByBall["ball"] = overText[1];
+        ballByBall["who_to_who"] = quickText;
+        ballByBall["batsman"] = quickText.split(",")[0].split(" to ")[1];
+        ballByBall["bowler"] = quickText.split(",")[0].split(" to ")[0];
+        ballByBall["ballcommentary"] = ballcommentary;
+        ballByBall["iswicket"] = containsWicket;
+        ballByBall["isboundary"] = containsBoundary;
+        ballByBall["isExtraRun"] = containsExtra;
+        ballByBall["runscored"] = containsWicket
+          ? 0
+          : dotBall
+          ? 0
+          : parseInt(runsText);
+        ballByBall["battingteam"] = "";
+        ballByBall["match_fk"] = "";
+        ballByBall["innings"] = "";
+        allData.push(ballByBall);
+      }
+    });
+  console.log(allData);
+  return allData;
 };

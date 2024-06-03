@@ -1,21 +1,12 @@
 {
-  "name": "Data Collection",
-  "version": "0.1.4",
-  "description": "Collecting data from cricinfo",
-  "permissions": ["storage", "activeTab", "scripting"],
-  "host_permissions": ["https://www.espncricinfo.com/*"],
+  "manifest_version": 3,
+  "name": "CricInfo Data Capture",
+  "version": "1.0",
+  "permissions": ["activeTab", "scripting", "storage"],
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": ["https://www.espncricinfo.com/*"],
-      "js": ["contentScript.js"]
-    }
-  ],
   "action": {
-    "default_title": "Data Collection",
     "default_popup": "popup.html"
-  },
-  "manifest_version": 3
+  }
 }
