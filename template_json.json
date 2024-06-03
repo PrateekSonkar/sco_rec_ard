@@ -1,0 +1,41 @@
+{
+  "batting": [],
+  "bowling": [],
+  "doNotBatPlayers": [],
+  "fallofwickets": [],
+  "partnership": [],
+  "battingOrder": [
+    {
+      "team": "LSG",
+      "teamInHindi": "एम आई",
+      "order": 1,
+      "Innings": 1
+    },
+    {
+      "team": "RR",
+      "teamInHindi": "आर आर",
+      "order": 2,
+      "Innings": 2
+    }
+  ],
+  "bowlingOrder": [
+    {
+      "team": "RR",
+      "teamInHindi": "आर आर",
+      "order": 1,
+      "Innings": 2
+    },
+    {
+      "team": "LSG",
+      "teamInHindi": "एम आई",
+      "order": 2,
+      "Innings": 1
+    }
+  ],
+  "batsmanHindi": [],
+  "bowlerHindi": [],
+  "doNotBatPlayersHindi": [],
+  "partnershipHindi": [],
+  "commentaryInnigsOne": [],
+  "commentaryInnigsTwo": []
+}
