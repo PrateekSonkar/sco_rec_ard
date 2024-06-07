@@ -666,27 +666,62 @@ function copyInningsDetails() {
   //   match_first_innings: JSON.stringify(firstInningsScore),
   // });
 
-  console.log("First Inning Data Stored !!", firstInningsScore);
+  // console.log("First Inning Data Stored !!", firstInningsScore);
+  // console.log(`
+  // Convert following Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+  // ${firstInningsScore.battingPlayers.join(", ")}
+
+  // outcome should be JSON like {"batsmanHindi" : [{"hindi": "translated name in Hindi", ...}]}
+  // `);
+  // console.log(`
+  // Convert following Bowlers name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+  // ${firstInningsScore.bowlingPlayers.join(", ")}
+
+  // outcome should be JSON like {"bowlerHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+  // `);
+  // console.log(`
+  // Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+  // ${firstInningsScore.doNotBatPlayersNames.join(", ")}
+
+  // outcome should be JSON like {"doNotBatPlayersHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+  // `);
+
+  //
+
   console.log(`
-  Convert following Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
-  
-  ${firstInningsScore.battingPlayers.join(", ")}
-  
-  outcome should be JSON like {"batsmanHindi" : [{"hindi": "translated name in Hindi", ...}]}
-  `);
-  console.log(`
-  Convert following Bowlers name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
-  
-  ${firstInningsScore.bowlingPlayers.join(", ")}
-  
-  outcome should be JSON like {"bowlerHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
-  `);
-  console.log(`
-  Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
-  
-  ${firstInningsScore.doNotBatPlayersNames.join(", ")}
-  
-  outcome should be JSON like {"doNotBatPlayersHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+  Translate the Players name in English to Hindi, follow the following instructions.
+
+- 1st list of players will be of batsmen outcome should be JSON like {"batsmanHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+- 2nd list of players will be of bowlers outcome should be JSON like {"bowlerHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+- 3rd list of players will be of Do no bat Batsmen outcome should be JSON like {"doNotBatPlayersHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]}
+- All 3 listed outcome should be converted to single JSON. Output should be {
+"batsmanHindi" : [{"hindi": "क्विंटन डी कॉक", ...}],
+"bowlerHindi" : [{"hindi": "क्विंटन डी कॉक", ...}],
+"doNotBatPlayersHindi" : [{"hindi": "क्विंटन डी कॉक", ...}]
+}
+- If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+
+Below is the list of players
+1) ${
+    firstInningsScore.battingPlayers.length > 0
+      ? firstInningsScore.battingPlayers.join(", ")
+      : "-"
+  }
+
+2) ${
+    firstInningsScore.bowlingPlayers.length > 0
+      ? firstInningsScore.bowlingPlayers.join(", ")
+      : "-"
+  }
+
+3) ${
+    firstInningsScore.doNotBatPlayersNames.length > 0
+      ? firstInningsScore.doNotBatPlayersNames.join(", ")
+      : "-"
+  }
   `);
 
   return firstInningsScore;
@@ -797,7 +832,7 @@ function copyPartnershipDetails() {
   });
 
   console.log(`
-    Convert following Do no bat Batsmen name in English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
+    Convert following Batting partnership info from English to Hindi, If you find acronymn in name like AK then hindi translation should have space between A and K in translated text
   
   ${[...partnershipsFirstInnings, ...partnershipsSecondInnings]
     .map((obj) => obj["Partnership Between"])
