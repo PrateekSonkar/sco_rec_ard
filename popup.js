@@ -1,31 +1,215 @@
 document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("fetchHeading").addEventListener("click", () => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      chrome.scripting.executeScript(
-        {
-          target: { tabId: tabs[0].id },
-          function: scrapeData,
-        },
-        (results) => {
-          console.log(" Results: ", results);
-          if (chrome.runtime.lastError) {
-            console.error(chrome.runtime.lastError.message);
-          } else {
-            const matchHeading = results[0].result;
-            document.getElementById("matchHeading").value = matchHeading;
-            chrome.storage.local.set(
-              {
-                matchHeading: matchHeading,
-              },
-              () => {
-                console.log("Match heading saved:", matchHeading);
-              }
-            );
-          }
-        }
-      );
-    });
+  // Restore the saved custom ID when the popup is opened
+  chrome.storage.local.get(["customId"], (result) => {
+    if (result.customId) {
+      document.getElementById("customId").value = result.customId;
+    }
   });
+
+  // Save the custom ID when the input field loses focus
+  document.getElementById("customId").addEventListener("blur", () => {
+    const customId = document.getElementById("customId").value;
+    chrome.storage.local.set({ customId: customId });
+  });
+
+  // document
+  //   .getElementById("saveInningDetail")
+  //   .addEventListener("click", async () => {
+  //     const id = document.getElementById("customId").value;
+  //     let firstInningTeam = document.getElementById("firstInningTeam").value;
+  //     let secondInningTeam = document.getElementById("secondInningTeam").value;
+  //     let battingOrder = [
+  //       {
+  //         team: firstInningTeam,
+  //         teamInHindi: "",
+  //         order: 1,
+  //         Innings: 1,
+  //       },
+  //       {
+  //         team: secondInningTeam,
+  //         teamInHindi: "",
+  //         order: 2,
+  //         Innings: 2,
+  //       },
+  //     ];
+  //     let bowlingOrder = [
+  //       {
+  //         team: secondInningTeam,
+  //         teamInHindi: "",
+  //         order: 1,
+  //         Innings: 2,
+  //       },
+  //       {
+  //         team: firstInningTeam,
+  //         teamInHindi: "",
+  //         order: 2,
+  //         Innings: 1,
+  //       },
+  //     ];
+
+  //     if (!firstInningTeam || !secondInningTeam) {
+  //       alert("Please enter both team names");
+  //       return;
+  //     }
+  //     // Fetch Hindi translation for team names
+  //     await fetch(`http://localhost:8000/engtohi/${firstInningTeam}`)
+  //       .then((response) => {
+  //         if (response.status === 404) {
+  //           // Entry not found, create new entry
+
+  //           alert("First Hindi Translation Not Found");
+  //         } else {
+  //           // Entry found, merge new data with existing data
+  //           return response.json();
+  //         }
+  //       })
+  //       .then((data) => {
+  //         console.log("First Hindi Translation", data);
+  //         battingOrder[0].teamInHindi = data["hindi"];
+  //         bowlingOrder[1].teamInHindi = data["hindi"];
+  //         //return data;
+  //       })
+  //       .catch((error) => {
+  //         console.error("Error:", error);
+  //       });
+  //     // Fetch Hindi translation for team names
+  //     await fetch(`http://localhost:8000/engtohi/${secondInningTeam}`)
+  //       .then((response) => {
+  //         if (response.status === 404) {
+  //           // Entry not found, create new entry
+
+  //           alert("Second Hindi Translation Not Found");
+  //         } else {
+  //           // Entry found, merge new data with existing data
+  //           return response.json();
+  //         }
+  //       })
+  //       .then((data) => {
+  //         battingOrder[1].teamInHindi = data["hindi"];
+  //         bowlingOrder[0].teamInHindi = data["hindi"];
+  //       })
+  //       .catch((error) => {
+  //         console.error("Error:", error);
+  //       });
+  //     // Saving the data to json server
+  //     await fetch(`http://localhost:8000/matches/${id}`)
+  //       .then((response) => {
+  //         if (response.status === 404) {
+  //           // Entry not found, create new entry
+  //           return fetch("http://localhost:8000/matches", {
+  //             method: "POST",
+  //             headers: {
+  //               "Content-Type": "application/json",
+  //             },
+  //             body: JSON.stringify({ id, battingOrder, bowlingOrder }),
+  //           });
+  //         } else {
+  //           // Entry found, merge new data with existing data
+  //           return response.json().then((existingData) => {
+  //             const updatedData = {
+  //               ...existingData,
+  //               battingOrder,
+  //               bowlingOrder,
+  //             };
+  //             return fetch(`http://localhost:8000/matches/${id}`, {
+  //               method: "PUT",
+  //               headers: {
+  //                 "Content-Type": "application/json",
+  //               },
+  //               body: JSON.stringify(updatedData),
+  //             });
+  //           });
+  //         }
+  //       })
+  //       .then((response) => response.json())
+  //       .then((data) => {
+  //         console.log("Data saved:", data);
+  //       })
+  //       .catch((error) => {
+  //         console.error("Error:", error);
+  //       });
+  //   });
+
+  document
+    .getElementById("saveInningDetail")
+    .addEventListener("click", async () => {
+      const id = document.getElementById("customId").value;
+      let firstInningTeam = document.getElementById("firstInningTeam").value;
+      let secondInningTeam = document.getElementById("secondInningTeam").value;
+
+      if (!firstInningTeam || !secondInningTeam) {
+        alert("Please enter both team names");
+        return;
+      }
+
+      let battingOrder = [
+        { team: firstInningTeam, teamInHindi: "", order: 1, Innings: 1 },
+        { team: secondInningTeam, teamInHindi: "", order: 2, Innings: 2 },
+      ];
+
+      let bowlingOrder = [
+        { team: secondInningTeam, teamInHindi: "", order: 1, Innings: 2 },
+        { team: firstInningTeam, teamInHindi: "", order: 2, Innings: 1 },
+      ];
+
+      // Function to fetch Hindi translation
+      async function fetchHindiTranslation(team, index, isBattingOrder = true) {
+        try {
+          const response = await fetch(`http://localhost:8000/engtohi/${team}`);
+          if (!response.ok) throw new Error("Translation not found");
+
+          const data = await response.json();
+          if (data && data.hindi) {
+            if (isBattingOrder) {
+              battingOrder[index].teamInHindi = data.hindi;
+            } else {
+              bowlingOrder[index].teamInHindi = data.hindi;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching Hindi translation:", error);
+          alert(`Hindi Translation Not Found for ${team}`);
+        }
+      }
+
+      // Fetch Hindi translations
+      await fetchHindiTranslation(firstInningTeam, 0);
+      await fetchHindiTranslation(secondInningTeam, 1);
+      await fetchHindiTranslation(secondInningTeam, 0, false);
+      await fetchHindiTranslation(firstInningTeam, 1, false);
+
+      // Saving the data to json server
+      try {
+        let response = await fetch(`http://localhost:8000/matches/${id}`);
+        let method = "POST";
+        let url = "http://localhost:8000/matches";
+        let body = JSON.stringify({ id, battingOrder, bowlingOrder });
+
+        if (response.ok) {
+          const existingData = await response.json();
+          method = "PUT";
+          url = `http://localhost:8000/matches/${id}`;
+          body = JSON.stringify({
+            ...existingData,
+            battingOrder,
+            bowlingOrder,
+          });
+        }
+
+        response = await fetch(url, {
+          method: method,
+          headers: { "Content-Type": "application/json" },
+          body: body,
+        });
+
+        if (!response.ok) throw new Error("Failed to save data");
+
+        const data = await response.json();
+        console.log("Data saved:", data);
+      } catch (error) {
+        console.error("Error saving data:", error);
+      }
+    });
 
   document.getElementById("saveData").addEventListener("click", () => {
     const customId = document.getElementById("customId").value;

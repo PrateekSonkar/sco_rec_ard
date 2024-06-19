@@ -10,12 +10,22 @@
 
 <body>
     <div class="container mt-3">
-        <h2>CricInfo Data Capture</h2>
-        <div class="form-group">
+        <h2>Cric Data</h2>
+        <!-- <div class="form-group">
             <label for="matchHeading">Match Heading:</label>
             <input type="text" class="form-control" id="matchHeading" disabled>
         </div>
-        <button id="fetchHeading" class="btn btn-secondary mb-3">Fetch Match Heading</button>
+        <button id="fetchHeading" class="btn btn-secondary mb-3">Fetch Match Heading</button> -->
+        <div class="form-group">
+            <label for="firstInningTeam">First Innings:</label>
+            <input type="text" class="form-control" id="firstInningTeam">
+        </div>
+        <div class="form-group">
+            <label for="secondInningTeam">Second Innings:</label>
+            <input type="text" class="form-control" id="secondInningTeam">
+        </div>
+        <button id="saveInningDetail" class="btn btn-secondary mb-3">Save Bat Order</button>
+        <div id="innmessage" style="color: green;">-</div>
         <div class="form-group">
             <label for="customId">Custom ID:</label>
             <input type="text" class="form-control" id="customId">
